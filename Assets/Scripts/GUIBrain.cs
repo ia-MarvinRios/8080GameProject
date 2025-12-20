@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 
 [System.Serializable]
@@ -18,6 +17,7 @@ public class GUIBrain : MonoBehaviour
 
     private void Awake()
     {
+        // Singleton pattern
         if (Instance == null)
         {
             Instance = this;
@@ -28,7 +28,7 @@ public class GUIBrain : MonoBehaviour
             Destroy(gameObject);
         }
 
-        uiNodes = new List<UINode>();
+        uiNodes = new List<UINode>();     
     }
 
     private void OnDisable()
@@ -36,6 +36,10 @@ public class GUIBrain : MonoBehaviour
         EndInteraction();
     }
 
+    /// <summary>
+    /// Starts a new UI interaction sequence with the given menu as the first node.
+    /// </summary>
+    /// <param name="uiMenu"></param>
     public void StartNewInteraction(GameObject uiMenu)
     {
         uiNodes.Clear();
@@ -45,6 +49,10 @@ public class GUIBrain : MonoBehaviour
 
         uiMenu.SetActive(true);
     }
+    /// <summary>
+    /// Opens a new UI menu, adding it to the interaction stack.
+    /// </summary>
+    /// <param name="uiMenu"></param>
     public void OpenNewMenu(GameObject uiMenu)
     {
         uiNodes[^1].next.SetActive(false);
@@ -52,20 +60,30 @@ public class GUIBrain : MonoBehaviour
         currentIndex++;
         uiMenu.SetActive(true);
     }
-    public void CloseCurrentMenu()
+    /// <summary>
+    /// Closes the current UI menu and returns to the previous one.
+    /// </summary>
+    /// <returns></returns>
+    public GameObject CloseCurrentMenu()
     {
-        uiNodes[^1].next.SetActive(false);
+        GameObject closed = uiNodes[^1].next;
+        closed.SetActive(false);
         uiNodes.RemoveAt(uiNodes.Count - 1);
         currentIndex--;
         if (uiNodes.Count > 0)
         {
             uiNodes[^1].next.SetActive(true);
+            return closed;
         }
         else
         {
             Debug.Log("No more UI Menus to go back to.");
+            return null;
         }
     }
+    /// <summary>
+    /// Goes back to the previous UI menu in the interaction stack without removing the current one.
+    /// </summary>
     public void GoBack()
     {
         if (uiNodes.Count < 2)
@@ -77,6 +95,9 @@ public class GUIBrain : MonoBehaviour
         uiNodes[currentIndex].previous.SetActive(true);
         currentIndex--;
     }
+    /// <summary>
+    /// Goes forward to the next UI menu in the interaction stack without adding a new one. Instead of opening a new menu, it reactivates the next one.
+    /// </summary>
     public void GoForward()
     {
         if (uiNodes.Count < 2)
@@ -89,7 +110,9 @@ public class GUIBrain : MonoBehaviour
         uiNodes[currentIndex].next.SetActive(true);
         currentIndex++;
     }
-
+    /// <summary>
+    /// Ends the current UI interaction sequence, closing all menus.
+    /// </summary>
     public void EndInteraction()
     {
         for (int i = uiNodes.Count - 1; i >= 0; i--)
@@ -97,5 +120,24 @@ public class GUIBrain : MonoBehaviour
             uiNodes[i].next.SetActive(false);
         }
         uiNodes.Clear();
+    }
+
+    // ------------ More Useful Methods ------------
+
+    /// <summary>
+    /// Locks the cursor to the center of the screen and makes it invisible.
+    /// </summary>
+    public void LockCursor()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+    /// <summary>
+    /// Unlocks the cursor and makes it visible.
+    /// </summary>
+    public void UnlockCursor()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 }

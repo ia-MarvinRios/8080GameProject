@@ -23,19 +23,36 @@ public class GameManager : MonoBehaviour
         }
     }
 
-
+    /// <summary>
+    /// Loads a new scene asynchronously by name.
+    /// </summary>
+    /// <param name="sceneName"></param>
+    /// <returns>Loader coroutine</returns>
     public Coroutine GoToScene(string sceneName) { return StartCoroutine(LoadSceneAsync(sceneName)); }
+    /// <summary>
+    /// Exits the application.
+    /// </summary>
+    /// <remarks>On most platforms, this method terminates the application process. In the Unity Editor, this
+    /// method has no effect.</remarks>
     public void ExitGame() { Application.Quit(); }
+    /// <summary>
+    /// Pauses the game by setting time scale to 0 and invoking pause event.
+    /// </summary>
     public void PauseGame()
     {
         OnGamePaused?.Invoke();
         Time.timeScale = 0f;
     }
+    /// <summary>
+    /// Resumes the game by setting time scale to 1 and invoking resume event.
+    /// </summary>
     public void ResumeGame()
     {
         Time.timeScale = 1f;
         OnGameResumed?.Invoke();
     }
+
+    // ------------ Private Methods ------------
 
     // -------------- Coroutines -----------------
 

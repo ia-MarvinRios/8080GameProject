@@ -3,19 +3,27 @@ using UnityEngine.InputSystem;
 
 public class PlayerController : MonoBehaviour
 {
+    PlayerPrefs playerPrefs;
     InputsActions _playerActions;
     InputAction _move;
     InputAction _look;
+    InputAction _crouch;
     Rigidbody _rb;
     float _xRotation = 0f;
+    float _colliderOriginalHeight;
+    Vector3 _colliderOriginalCenter;
 
     [Header("Player Settings")]
     [Space(10)]
     [SerializeField] float _moveSpeed = 5f;
     [SerializeField] float _jumpForce = 3f;
+    [SerializeField] float _groundCheckRadius = 0.2f;
+    [SerializeField] float _groundCheckOffset = 0.05f;
+    [SerializeField] LayerMask _groundLayer;
+    [SerializeField] CapsuleCollider _playerCollider;
     [Header("Player Camera")]
     [Space(10)]
-    [SerializeField, Range(0, 2f)] float _sensitivity = 1f;
+    [SerializeField, Range(0, 1f)] float _sensitivity = 1f;
     [SerializeField, Range(0, 180f)] float _maxLookAngle = 90f;
     [SerializeField] Camera _playerCamera;
     [SerializeField] Transform _cameraRoot;
@@ -25,6 +33,7 @@ public class PlayerController : MonoBehaviour
 
     private void Awake()
     {
+        playerPrefs = PreferencesData.LoadPreferences();
         _playerActions = new InputsActions();
         _rb = GetComponent<Rigidbody>();
     }
@@ -34,22 +43,34 @@ public class PlayerController : MonoBehaviour
         SetUpInputs();
     }
 
+    private void Start()
+    {
+        UpdateSettings();
+        _colliderOriginalHeight = _playerCollider.height;
+        _colliderOriginalCenter = _playerCollider.center;
+
+        InGameUI.OnSettingsChanged += UpdateSettings;
+    }
+
     private void OnDisable()
     {
         DisableAllInputs();
+
+        InGameUI.OnSettingsChanged -= UpdateSettings;
     }
 
     private void Update()
     {
         if(_inGameUI.isPaused) return;
         Look();
-        MoveCamera();
     }
 
     private void FixedUpdate()
     {
         if(_inGameUI.isPaused) return;
+        MoveCamera();
         Move();
+        Crouch();
     }
 
     void Look()
@@ -82,10 +103,31 @@ public class PlayerController : MonoBehaviour
 
         _rb.linearVelocity = new Vector3(direction.x * _moveSpeed, _rb.linearVelocity.y, direction.z * _moveSpeed);
     }
+    
+    void Crouch()
+    {
+        int isPressed = _crouch.ReadValue<int>();
+        switch (isPressed)
+        {
+            case 1:
+                Debug.Log("Crouch started");
+                float crouchHeight = _colliderOriginalHeight * 0.5f;
+
+                _playerCollider.height = crouchHeight;
+                _playerCollider.center = _colliderOriginalCenter - Vector3.up * (_colliderOriginalHeight - crouchHeight) * 0.5f;
+                break;
+
+            case 0:
+                Debug.Log("Crouch released");
+                _playerCollider.height = _colliderOriginalHeight;
+                _playerCollider.center = _colliderOriginalCenter;
+                break;
+        }
+    }
 
     void OnJump(InputAction.CallbackContext context)
     {
-        if (context.performed)
+        if (context.performed && IsGrounded())
         {
             _rb.AddForce(Vector3.up * _jumpForce, ForceMode.Impulse);
         }
@@ -104,6 +146,24 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    bool IsGrounded()
+    {
+        if (_playerCollider == null) {
+            Debug.LogWarning("Player collider is not assigned in the inspector.");
+            return false;
+        }
+
+        Bounds bounds = _playerCollider.bounds;
+
+        Vector3 spherePos = new Vector3(
+            bounds.center.x,
+            bounds.min.y - _groundCheckOffset,
+            bounds.center.z
+        );
+
+        return Physics.CheckSphere(spherePos, _groundCheckRadius, _groundLayer);
+    }
+
     void MoveCamera()
     {
         if (_playerCamera != null)
@@ -119,6 +179,8 @@ public class PlayerController : MonoBehaviour
         _move.Enable();
         _look = _playerActions.Player.Look;
         _look.Enable();
+        _crouch = _playerActions.Player.Crouch;
+        _crouch.Enable();
 
         _playerActions.Player.Jump.performed += OnJump;
         _playerActions.Player.Jump.Enable();
@@ -129,7 +191,29 @@ public class PlayerController : MonoBehaviour
     {
         _move.Disable();
         _look.Disable();
+        _crouch.Disable();
         _playerActions.Player.Jump.Disable();
         _playerActions.Player.Escape.Disable();
+    }
+    void UpdateSettings()
+    {
+        playerPrefs = PreferencesData.LoadPreferences();
+        _sensitivity = playerPrefs.sensitivity;
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        if (_playerCollider == null) return;
+
+        Bounds bounds = _playerCollider.bounds;
+
+        Vector3 spherePos = new Vector3(
+            bounds.center.x,
+            bounds.min.y - _groundCheckOffset,
+            bounds.center.z
+        );
+
+        Gizmos.color = Color.green;
+        Gizmos.DrawWireSphere(spherePos, _groundCheckRadius);
     }
 }
